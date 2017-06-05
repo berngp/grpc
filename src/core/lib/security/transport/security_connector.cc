@@ -566,10 +566,18 @@ static void ssl_channel_add_handshakers(grpc_exec_ctx *exec_ctx,
       (grpc_ssl_channel_security_connector *)sc;
   // Instantiate TSI handshaker.
   tsi_handshaker *tsi_hs = NULL;
+  const char *server_name_indication;
+
+  if (c->verify_options->skip_hostname_verification) {
+    server_name_indication = NULL;
+  } else {
+    server_name_indication = c->overridden_target_name != NULL ? c->overridden_target_name
+                                                               : c->target_name;
+  }
+
   tsi_result result = tsi_ssl_client_handshaker_factory_create_handshaker(
       c->client_handshaker_factory,
-      c->overridden_target_name != NULL ? c->overridden_target_name
-                                        : c->target_name,
+      server_name_indication,
       &tsi_hs);
   if (result != TSI_OK) {
     gpr_log(GPR_ERROR, "Handshaker creation failed with error %s.",
@@ -693,9 +701,16 @@ static void ssl_channel_check_peer(grpc_exec_ctx *exec_ctx,
                                    grpc_closure *on_peer_checked) {
   grpc_ssl_channel_security_connector *c =
       (grpc_ssl_channel_security_connector *)sc;
-  const char *target_name = c->overridden_target_name != NULL
-                      ? c->overridden_target_name
-                      : c->target_name;
+
+  char *target_name;
+  if (c->verify_options->skip_hostname_verification) {
+    target_name = NULL;
+  } else {
+    target_name = c->overridden_target_name != NULL
+                  ? c->overridden_target_name
+                  : c->target_name;
+  }
+
   grpc_error *error = ssl_check_peer(sc, target_name, &peer, auth_context);
   if (error == GRPC_ERROR_NONE && c->verify_options->verify_peer_callback != NULL) {
     const tsi_peer_property *p =
@@ -807,6 +822,10 @@ static bool ssl_channel_check_call_host(grpc_exec_ctx *exec_ctx,
   grpc_security_status status = GRPC_SECURITY_ERROR;
   tsi_peer peer = tsi_shallow_peer_from_ssl_auth_context(auth_context);
   if (ssl_host_matches_name(&peer, host)) status = GRPC_SECURITY_OK;
+
+  if (c->verify_options->skip_hostname_verification) {
+    status = GRPC_SECURITY_OK;
+  }
   /* If the target name was overridden, then the original target_name was
      'checked' transitively during the previous peer check at the end of the
      handshake. */

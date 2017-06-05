@@ -191,7 +191,10 @@ def channel_credentials_ssl(pem_root_certificates,
   vp_options.verify_peer_callback = NULL
   vp_options.verify_peer_callback_userdata = NULL
   vp_options.verify_peer_destruct = NULL
+  vp_options.skip_hostname_verification = False
   if verify_options is not None:
+    if "insecureSkipHostnameVerify" in verify_options:
+      vp_options.skip_hostname_verification = verify_options["insecureSkipHostnameVerify"]
     if "checkServerIdentity" in verify_options:
       fn = verify_options["checkServerIdentity"]
       if not callable(fn):

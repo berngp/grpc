@@ -185,7 +185,7 @@ NAN_METHOD(ChannelCredentials::CreateSsl) {
         " provided or omitted together");
   }
 
-  verify_peer_options verify_options = {NULL, NULL, NULL};
+  verify_peer_options verify_options = {NULL, NULL, NULL, false};
   if (info.Length() >= 4 && info[3]->IsObject()) {
     Local<Context> context = Nan::New<Context>();
     Local<Object> object = info[3]->ToObject();
@@ -209,6 +209,13 @@ NAN_METHOD(ChannelCredentials::CreateSsl) {
             verify_options.verify_peer_callback = verify_peer_callback_wrapper;
             verify_options.verify_peer_callback_userdata = (void*)md;
             verify_options.verify_peer_destruct = verify_peer_callback_destruct;
+
+          } else if (strcmp("insecureSkipHostnameVerify", (const char*)(*keyStr)) == 0) {
+
+            if (!value->IsBoolean()) {
+              return Nan::ThrowError("Value of insecureSkipHostnameVerify must be a boolean.");
+            }
+            verify_options.skip_hostname_verification = value->BooleanValue();
 
           }
         }
