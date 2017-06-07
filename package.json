@@ -1,5 +1,5 @@
 {
-  "name": "grpc",
+  "name": "nflx-grpc",
   "version": "1.8.0-dev",
   "author": "Google Inc.",
   "description": "gRPC Library for Node",
