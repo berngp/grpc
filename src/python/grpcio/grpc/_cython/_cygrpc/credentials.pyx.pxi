@@ -157,23 +157,62 @@ def channel_credentials_google_default():
     credentials.c_credentials = grpc_google_default_credentials_create()
   return credentials
 
+cdef int verify_peer_callback_wrapper(const char* servername, const char* cert, void* userdata) with gil:
+  if userdata == NULL:
+    print("Error! Callback function wasn't set!")
+    return 1
+  fn = <object>userdata
+  py_servername = None
+  if servername != NULL:
+    py_servername = <object>servername
+  py_cert = None
+  if cert != NULL:
+    py_cert = <object>cert
+  try:
+    result = fn(py_servername, py_cert)
+    if result:
+      return 0
+    return 1
+  except Exception:
+    return 1
+
+cdef void verify_peer_callback_destruct(void *userdata) with gil:
+  fn = <object>userdata
+  cpython.Py_DECREF(fn)
+
 def channel_credentials_ssl(pem_root_certificates,
-                            SslPemKeyCertPair ssl_pem_key_cert_pair):
+                            SslPemKeyCertPair ssl_pem_key_cert_pair,
+                            verify_options):
   pem_root_certificates = str_to_bytes(pem_root_certificates)
   cdef ChannelCredentials credentials = ChannelCredentials()
   cdef const char *c_pem_root_certificates = NULL
+  cdef verify_peer_options vp_options
+
+  vp_options.verify_peer_callback = NULL
+  vp_options.verify_peer_callback_userdata = NULL
+  vp_options.verify_peer_destruct = NULL
+  if verify_options is not None:
+    if "checkServerIdentity" in verify_options:
+      fn = verify_options["checkServerIdentity"]
+      if not callable(fn):
+        raise TypeError("checkServerIdentity parameter must be callable.")
+      cpython.Py_INCREF(fn)
+      vp_options.verify_peer_callback = verify_peer_callback_wrapper
+      vp_options.verify_peer_callback_userdata = <void*>fn
+      vp_options.verify_peer_destruct = verify_peer_callback_destruct
+
   if pem_root_certificates is not None:
     c_pem_root_certificates = pem_root_certificates
     credentials.references.append(pem_root_certificates)
   if ssl_pem_key_cert_pair is not None:
     with nogil:
       credentials.c_credentials = grpc_ssl_credentials_create(
-          c_pem_root_certificates, &ssl_pem_key_cert_pair.c_pair, NULL, NULL)
+          c_pem_root_certificates, &ssl_pem_key_cert_pair.c_pair, &vp_options, NULL)
     credentials.references.append(ssl_pem_key_cert_pair)
   else:
     with nogil:
       credentials.c_credentials = grpc_ssl_credentials_create(
-        c_pem_root_certificates, NULL, NULL, NULL)
+        c_pem_root_certificates, NULL, &vp_options, NULL)
   return credentials
 
 def channel_credentials_composite(

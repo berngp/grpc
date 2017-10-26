@@ -14,7 +14,6 @@
 
 cimport libc.time
 
-
 # Typedef types with approximately the same semantics to provide their names to
 # Cython
 ctypedef int int32_t
@@ -404,8 +403,9 @@ cdef extern from "grpc/grpc_security.h":
     pass
 
   ctypedef struct verify_peer_options:
-    # We don't care about the internals (and in fact don't know them)
-    pass
+    int (*verify_peer_callback)(const char*, const char*, void*)
+    void *verify_peer_callback_userdata
+    void (*verify_peer_destruct)(void*)
 
   ctypedef void (*grpc_ssl_roots_override_callback)(char **pem_root_certs)
 
