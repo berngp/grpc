@@ -719,7 +719,7 @@ static void ssl_channel_check_peer(grpc_exec_ctx *exec_ctx,
       error = GRPC_ERROR_CREATE_FROM_STATIC_STRING(
               "Cannot check peer: missing pem cert property.");
     } else {
-      char* peer_pem = gpr_malloc(p->value.length + 1);
+      char* peer_pem = (char*)gpr_malloc(p->value.length + 1);
       memcpy(peer_pem, p->value.data, p->value.length);
       peer_pem[p->value.length] = '\0';
       int callback_status = c->verify_options->verify_peer_callback(target_name, peer_pem,
